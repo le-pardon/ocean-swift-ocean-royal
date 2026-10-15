@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "KhetSaathi",
+      "hasCanvas": false,
+      "bodyTextLen": 431,
+      "bodyTextHash": "62604c5c840d81bdc46b37cc42ee13564f4db432792904bc3bc8a5483db29c87",
+      "bodyTextPrefix": "22 scheduled Indian languages KhetSaathi Plant today. Profit at ",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "KhetSaathi",
+      "hasCanvas": false,
+      "bodyTextLen": 431,
+      "bodyTextHash": "62604c5c840d81bdc46b37cc42ee13564f4db432792904bc3bc8a5483db29c87",
+      "bodyTextPrefix": "22 scheduled Indian languages KhetSaathi Plant today. Profit at ",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}
