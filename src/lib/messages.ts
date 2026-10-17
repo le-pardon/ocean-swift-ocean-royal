@@ -2,7 +2,7 @@ import type { LangCode } from "./languages";
 
 export const en = {
   appName: "KhetSaathi",
-  tagline: "Plant today. Profit at harvest.",
+  tagline: "Plan before you plant.",
   chooseLanguage: "Choose your language",
   searchLang: "Search languages",
   continue: "Continue",
@@ -191,7 +191,7 @@ export type Dict = Record<MsgKey, string>;
 
 export const hi: Dict = {
   appName: "खेतसाथी",
-  tagline: "आज बोएँ। कटाई पर कमाएँ।",
+  tagline: "बोने से पहले हिसाब लगाएँ।",
   chooseLanguage: "अपनी भाषा चुनें",
   searchLang: "भाषा खोजें",
   continue: "आगे बढ़ें",
@@ -791,7 +791,7 @@ export const gu: Dict = {
 export const kn: Dict = {
   ...en,
   appName: "ಖೇತ್‌ಸಾಥಿ",
-  tagline: "ಇಂದು ಬಿತ್ತಿ. ಕೊಯ್ಲಿನಲ್ಲಿ ಲಾಭ.",
+  tagline: "ಬಿತ್ತುವ ಮೊದಲು ಲೆಕ್ಕ ಹಾಕಿ.",
   chooseLanguage: "ನಿಮ್ಮ ಭಾಷೆ ಆಯ್ಕೆಮಾಡಿ",
   searchLang: "ಭಾಷೆ ಹುಡುಕಿ",
   continue: "ಮುಂದುವರಿಸಿ",

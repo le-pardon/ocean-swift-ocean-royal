@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Camera, ImagePlus, ScrollText } from "lucide-react";
 import { toast } from "sonner";
 import { useT } from "@/lib/i18n";
@@ -11,7 +11,9 @@ import { LeafArt } from "@/components/LeafArt";
 import { FertilizerCards } from "@/components/FertilizerCards";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
-import { LEAF_SAMPLES, SYMPTOM_FALLBACK } from "@/lib/samples";
+import { LEAF_SAMPLES } from "@/lib/samples";
+import { notice, signLabel } from "@/lib/notices";
+import { blankSoilDraft, invalidSoilFields } from "@/lib/validation";
 import { planFertilizers, sampleMaharashtraSoil, statusB, statusCu, statusFe, statusK, statusMn, statusN, statusOC, statusP, statusZn } from "@/lib/fertilizers";
 import type { Diagnosis, SoilReading, SoilType } from "@/lib/types";
 import { cn } from "@/lib/cn";
@@ -57,6 +59,40 @@ function DiagnosePage() {
   );
 }
 
+const CONSENT_KEY = "khetsaathi-photo-consent-v1";
+
+/** Photos leave the device for an outside AI service, so ask first. Stored per device. */
+function usePhotoConsent() {
+  const [ok, setOk] = useState(false);
+  useEffect(() => {
+    try {
+      setOk(localStorage.getItem(CONSENT_KEY) === "1");
+    } catch {
+      /* storage blocked: ask every visit */
+    }
+  }, []);
+  const grant = () => {
+    setOk(true);
+    try {
+      localStorage.setItem(CONSENT_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+  };
+  return { ok, grant };
+}
+
+function ConsentGate({ lang, grant }: { lang: string; grant: () => void }) {
+  return (
+    <div className="space-y-2 rounded-[var(--radius-lg)] bg-surface p-4 text-sm shadow-[var(--shadow-border)]">
+      <p>{notice(lang, "photoConsentText")}</p>
+      <Button type="button" variant="outline" onClick={grant}>
+        {notice(lang, "photoConsentCheck")}
+      </Button>
+    </div>
+  );
+}
+
 function LeafPanel() {
   const { t, lang } = useT();
   const add = useApp((s) => s.addDiagnosis);
@@ -66,9 +102,12 @@ function LeafPanel() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [result, setResult] = useState<Diagnosis | null>(null);
   const [failed, setFailed] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const consent = usePhotoConsent();
 
   async function fromFile(file: File) {
     setFailed(false);
+    setNote(null);
     setResult(null);
     const dataUrl = await fileToJpegDataUrl(file);
     setPhoto(dataUrl);
@@ -82,7 +121,28 @@ function LeafPanel() {
         toast.error(t("aiOff"));
         return;
       }
-      const d: Diagnosis = { ...res.diagnosis, id: uid("dx"), date: new Date().toISOString(), photoDataUrl: dataUrl };
+      if (res.quality === "unusable") {
+        setNote(notice(lang, "leafUnusable"));
+        return;
+      }
+      const shown = res.signs.filter((x) => x !== "none_visible");
+      const d: Diagnosis = {
+        id: uid("dx"),
+        date: new Date().toISOString(),
+        photoDataUrl: dataUrl,
+        origin: "ai",
+        issueType: "unclear",
+        issue: shown.length ? shown.map((x) => signLabel(lang, x)).join("; ") : signLabel(lang, "none_visible"),
+        summary: [
+          shown.length ? "" : notice(lang, "leafNoSigns"),
+          res.quality === "poor" ? notice(lang, "leafUnusable") : "",
+          notice(lang, "leafNotice"),
+        ]
+          .filter(Boolean)
+          .join(" "),
+        treatment: notice(lang, "leafGuidance"),
+        fertilizers: [],
+      };
       setResult(d);
       add(d);
     } catch {
@@ -98,11 +158,12 @@ function LeafPanel() {
       ...sample.diagnosis,
       id: uid("dx"),
       date: new Date().toISOString(),
+      origin: "demo",
     };
     setPhoto(null);
-    setResult(d);
-    add(d);
+    setResult(d); // demo examples are shown but never saved to the farmer's history
     setFailed(false);
+    setNote(null);
   }
 
   return (
@@ -123,16 +184,18 @@ function LeafPanel() {
         </div>
       )}
 
+      {consent.ok ? null : <ConsentGate lang={lang} grant={consent.grant} />}
       <div className="grid grid-cols-2 gap-2">
-        <Button onClick={() => camRef.current?.click()}>
+        <Button disabled={!consent.ok} onClick={() => camRef.current?.click()}>
           <Camera className="size-4" />
           {t("takePhoto")}
         </Button>
-        <Button variant="outline" onClick={() => galRef.current?.click()}>
+        <Button variant="outline" disabled={!consent.ok} onClick={() => galRef.current?.click()}>
           <ImagePlus className="size-4" />
           {t("gallery")}
         </Button>
       </div>
+      {note ? <p className="rounded-[var(--radius-md)] bg-cream px-3 py-2 text-sm">{note}</p> : null}
 
       <div>
         <p className="mb-2 text-sm font-medium text-muted-foreground">{t("samples")}</p>
@@ -152,24 +215,9 @@ function LeafPanel() {
       </div>
 
       {failed ? (
-        <div className="space-y-2 rounded-[var(--radius-lg)] bg-surface p-4 shadow-[var(--shadow-border)]">
-          <p className="text-sm">{t("aiOff")}</p>
-          <div className="grid gap-2">
-            {(["yellowOld", "purpleLeaf", "burnEdge", "spots"] as const).map((k) => (
-              <Button
-                key={k}
-                variant="outline"
-                onClick={() => {
-                  const d: Diagnosis = { ...SYMPTOM_FALLBACK[k], id: uid("dx"), date: new Date().toISOString() };
-                  setResult(d);
-                  add(d);
-                  setFailed(false);
-                }}
-              >
-                {t(k)}
-              </Button>
-            ))}
-          </div>
+        <div className="space-y-2 rounded-[var(--radius-lg)] bg-surface p-4 text-sm shadow-[var(--shadow-border)]">
+          <p>{t("aiOff")}</p>
+          <p>{notice(lang, "expertFallback")}</p>
         </div>
       ) : null}
 
@@ -179,25 +227,34 @@ function LeafPanel() {
 }
 
 function DiagnosisCard({ d }: { d: Diagnosis }) {
-  const { t } = useT();
-  const sev: Record<Diagnosis["severity"], MsgKey> = { low: "low", mid: "mid", high: "high" };
+  const { t, lang } = useT();
+  const sev: Record<NonNullable<Diagnosis["severity"]>, MsgKey> = { low: "low", mid: "mid", high: "high" };
   return (
     <section className="space-y-3">
       <article className="rounded-[var(--radius-lg)] bg-surface p-4 shadow-[var(--shadow-border)]">
+        {d.origin === "demo" ? (
+          <p className="mb-2 rounded-[var(--radius-sm)] bg-accent/15 px-2.5 py-1.5 text-xs font-medium text-accent">{notice(lang, "demoBanner")}</p>
+        ) : null}
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t("issue")}</p>
         <h2 className="font-display text-2xl">{d.issue}</h2>
         {d.cropGuess ? <p className="text-sm text-muted-foreground">{d.cropGuess}</p> : null}
-        <p className="mt-2 inline-block rounded-full bg-accent/15 px-2.5 py-0.5 text-xs font-medium text-accent">
-          {t("severity")}: {t(sev[d.severity])}
-        </p>
+        {d.severity ? (
+          <p className="mt-2 inline-block rounded-full bg-accent/15 px-2.5 py-0.5 text-xs font-medium text-accent">
+            {t("severity")}: {t(sev[d.severity])}
+          </p>
+        ) : null}
         <p className="mt-3 text-sm">{d.summary}</p>
         <p className="mt-2 text-sm">
           <span className="font-medium">{t("fix")}. </span>
           {d.treatment}
         </p>
       </article>
-      <h3 className="font-display text-xl">{t("buy")}</h3>
-      <FertilizerCards items={d.fertilizers} />
+      {d.fertilizers.length > 0 ? (
+        <>
+          <h3 className="font-display text-xl">{t("buy")}</h3>
+          <FertilizerCards items={d.fertilizers} />
+        </>
+      ) : null}
     </section>
   );
 }
@@ -211,29 +268,35 @@ function SoilPanel() {
   const [draft, setDraft] = useState<Omit<SoilReading, "id" | "date"> | null>(null);
   const [photo, setPhoto] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
-
-  function fallbackCard(dataUrl?: string) {
-    setDraft({ ...sampleMaharashtraSoil(), photoDataUrl: dataUrl, source: "card" });
-  }
+  const [soilNote, setSoilNote] = useState<string | null>(null);
+  const consent = usePhotoConsent();
 
   async function fromFile(file: File) {
     const dataUrl = await fileToJpegDataUrl(file);
     setPhoto(dataUrl);
     setBusy(true);
+    setSoilNote(null);
     const minWait = new Promise((r) => setTimeout(r, 2000));
+    // Never invent values: anything the card reader could not read stays blank for the farmer to type.
+    const blank = { ...blankSoilDraft(store.soilType), photoDataUrl: dataUrl };
     try {
       const res = await analyzePhoto({ data: { imageBase64: dataUrl, kind: "soil-card", lang } });
       await minWait;
       if (!res.ok || res.kind !== "soil-card") {
         toast.error(t("aiOff"));
-        fallbackCard(dataUrl);
+        setSoilNote(notice(lang, "soilNotRead"));
+        setDraft(blank);
         return;
       }
-      setDraft({ ...res.reading, photoDataUrl: dataUrl, source: "card" });
+      setDraft({ ...blank, ...res.values, lab: res.lab, source: "card" });
+      setSoilNote(
+        res.missing.length ? notice(lang, "soilUnreadable", { fields: res.missing.join(", ") }) : null,
+      );
     } catch {
       await minWait;
       toast.error(t("aiOff"));
-      fallbackCard(dataUrl);
+      setSoilNote(notice(lang, "soilNotRead"));
+      setDraft(blank);
     } finally {
       setBusy(false);
     }
@@ -241,6 +304,15 @@ function SoilPanel() {
 
   function save() {
     if (!draft) return;
+    if (draft.source === "sample") {
+      toast.error(notice(lang, "soilSampleNotSavable"));
+      return;
+    }
+    const bad = invalidSoilFields(draft);
+    if (bad.length > 0) {
+      toast.error(notice(lang, "soilIncomplete", { fields: bad.join(", ") }));
+      return;
+    }
     const saved: SoilReading = { ...draft, id: uid("soil"), date: new Date().toISOString() };
     store.addSoilTest(saved);
     if (draft.texture) store.updateProfile({ soilType: draft.texture });
@@ -250,7 +322,8 @@ function SoilPanel() {
   }
 
   const active = store.soilTests.find((s) => s.id === activeId) ?? store.soilTests[0];
-  const preview = draft ? planFertilizers({ ...draft, id: "draft", date: "" }, store.state) : [];
+  const draftComplete = draft ? invalidSoilFields(draft).length === 0 : false;
+  const preview = draft && draftComplete ? planFertilizers({ ...draft, id: "draft", date: "" }, store.state) : [];
   const savedPlan = active ? planFertilizers(active, store.state) : [];
 
   return (
@@ -271,12 +344,13 @@ function SoilPanel() {
         </div>
       )}
 
+      {consent.ok ? null : <ConsentGate lang={lang} grant={consent.grant} />}
       <div className="grid grid-cols-2 gap-2">
-        <Button onClick={() => camRef.current?.click()}>
+        <Button disabled={!consent.ok} onClick={() => camRef.current?.click()}>
           <Camera className="size-4" />
           {t("snapHealthCard")}
         </Button>
-        <Button variant="outline" onClick={() => galRef.current?.click()}>
+        <Button variant="outline" disabled={!consent.ok} onClick={() => galRef.current?.click()}>
           <ImagePlus className="size-4" />
           {t("gallery")}
         </Button>
@@ -287,6 +361,7 @@ function SoilPanel() {
           onClick={() => {
             setDraft(sampleMaharashtraSoil());
             setPhoto(null);
+            setSoilNote(notice(lang, "soilSampleNotSavable"));
           }}
         >
           <ScrollText className="size-4" />
@@ -294,24 +369,11 @@ function SoilPanel() {
         </Button>
         <Button
           variant="ghost"
-          onClick={() =>
-            setDraft({
-              pH: 7,
-              EC: 0.3,
-              OC: 0.5,
-              N: 280,
-              P: 25,
-              K: 180,
-              S: 12,
-              Zn: 0.6,
-              Fe: 4.5,
-              Mn: 2.5,
-              Cu: 0.4,
-              B: 0.5,
-              texture: "loam",
-              source: "manual",
-            })
-          }
+          onClick={() => {
+            setDraft(blankSoilDraft(store.soilType));
+            setPhoto(null);
+            setSoilNote(null);
+          }}
         >
           {t("manual")}
         </Button>
@@ -326,6 +388,7 @@ function SoilPanel() {
           }}
         >
           <h2 className="font-display text-xl">{t("confirmSoil")}</h2>
+          {soilNote ? <p className="rounded-[var(--radius-sm)] bg-cream px-3 py-2 text-sm">{soilNote}</p> : null}
           <div className="grid grid-cols-2 gap-3">
             <Num label={t("pH")} value={draft.pH} onChange={(pH) => setDraft({ ...draft, pH })} />
             <Num label="EC" value={draft.EC} onChange={(EC) => setDraft({ ...draft, EC })} />
@@ -342,6 +405,7 @@ function SoilPanel() {
           </div>
           <div>
             <Label>{t("texture")}</Label>
+            <p className="mb-1 text-xs text-muted-foreground">{notice(lang, "soilTextureNote")}</p>
             <Select
               value={draft.texture}
               onChange={(e) => setDraft({ ...draft, texture: e.target.value as SoilType })}
@@ -361,8 +425,12 @@ function SoilPanel() {
             />
           </div>
           <h3 className="font-display text-lg">{t("plan")}</h3>
-          <NutrientStrip soil={{ ...draft, id: "draft", date: "" }} />
-          <FertilizerCards items={preview} />
+          {draftComplete ? (
+            <>
+              <NutrientStrip soil={{ ...draft, id: "draft", date: "" }} />
+              <FertilizerCards items={preview} />
+            </>
+          ) : null}
           <Button type="submit" className="w-full">
             {t("addTest")}
           </Button>
@@ -432,11 +500,11 @@ function SoilPanel() {
 }
 
 function Num({ label, value, onChange }: { label: string; value: number; onChange: (n: number) => void }) {
-  const shown = Number.isFinite(value) ? String(Math.round(value * 100) / 100) : "0";
+  const shown = Number.isFinite(value) ? String(Math.round(value * 100) / 100) : "";
   return (
     <div>
       <Label>{label}</Label>
-      <Input type="number" step="any" value={shown} onChange={(e) => onChange(Number(e.target.value))} />
+      <Input type="number" step="any" value={shown} onChange={(e) => onChange(e.target.value === "" ? NaN : Number(e.target.value))} />
     </div>
   );
 }

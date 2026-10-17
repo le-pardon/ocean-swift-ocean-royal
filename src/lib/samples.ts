@@ -103,10 +103,3 @@ export const LEAF_SAMPLES: {
     },
   },
 ];
-
-export const SYMPTOM_FALLBACK: Record<string, Omit<Diagnosis, "id" | "date">> = {
-  yellowOld: LEAF_SAMPLES[0].diagnosis,
-  purpleLeaf: LEAF_SAMPLES[1].diagnosis,
-  burnEdge: LEAF_SAMPLES[2].diagnosis,
-  spots: LEAF_SAMPLES[3].diagnosis,
-};

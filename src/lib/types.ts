@@ -68,6 +68,8 @@ export type RankedCrop = Crop & {
   harvestDateLabel: string;
   fitScore: number;
   reasons: string[];
+  /** "placeholder" = built-in figures with no recorded source, date or local validation. */
+  dataStatus: "placeholder";
 };
 
 export type Diagnosis = {
@@ -75,9 +77,12 @@ export type Diagnosis = {
   date: string;
   photoDataUrl?: string;
   cropGuess?: string;
-  issueType: "deficiency" | "disease" | "pest";
+  issueType: "deficiency" | "disease" | "pest" | "unclear";
   issue: string;
-  severity: Severity;
+  /** Only set for built-in demo examples. AI photo results never claim a severity. */
+  severity?: Severity;
+  /** "demo" = built-in example, not about the user's plant. */
+  origin?: "ai" | "demo";
   summary: string;
   treatment: string;
   fertilizers: FertilizerRec[];

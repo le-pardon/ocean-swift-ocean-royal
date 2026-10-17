@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Camera, Landmark, Leaf, ScrollText } from "lucide-react";
 import { useT } from "@/lib/i18n";
+import { notice } from "@/lib/notices";
 import { useApp } from "@/lib/store";
 import { cropName, currentSeason, recommendCrops } from "@/lib/crops";
 import { greetingKey, inr, shortDate } from "@/lib/format";
@@ -87,6 +88,7 @@ function FarmerHome() {
                 <div className="text-end">
                   <p className="tabular text-2xl font-semibold text-accent">{inr(top.profitPerAcre, lang)}</p>
                   <p className="text-xs text-muted-foreground">{t("profitAcre")}</p>
+                  <p className="text-[10px] text-muted-foreground">{notice(lang, "placeholderShort")}</p>
                 </div>
               </div>
             </div>

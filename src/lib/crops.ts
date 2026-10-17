@@ -1,5 +1,5 @@
-import type { Crop, FertilizerRec, RankedCrop, Season, SoilReading, SoilType } from "./types";
-import { planFertilizers } from "./fertilizers";
+import type { Crop, FertilizerRec, RankedCrop, Season, SoilReading, SoilType } from "./types.ts";
+import { planFertilizers } from "./fertilizers.ts";
 
 export const STATES = [
   "Andhra Pradesh",
@@ -442,7 +442,7 @@ export function recommendCrops(input: {
       }
       const extraFert = input.soil ? fertCost : 0;
       const profit = Math.round(yieldQtl * c.harvestPrice - c.costPerAcre - extraFert);
-      fit += Math.max(0, Math.min(0.15, profit / 80000));
+      // Fit is agronomic suitability only. Profit used to be added here, which made it count twice in the display.
       return {
         ...c,
         profitPerAcre: profit,
@@ -451,6 +451,8 @@ export function recommendCrops(input: {
         harvestDateLabel: harvestDate(c.days),
         fitScore: Math.max(0.15, Math.min(1, fit)),
         reasons,
+        // Yield, cost and price come from built-in figures with no recorded source or date.
+        dataStatus: "placeholder" as const,
       };
     })
     .sort((a, b) => b.profitPerAcre - a.profitPerAcre);

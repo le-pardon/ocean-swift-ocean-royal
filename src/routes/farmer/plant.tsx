@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { FertilizerCards } from "@/components/FertilizerCards";
 import { planFertilizers } from "@/lib/fertilizers";
+import { notice } from "@/lib/notices";
 import type { Season, SoilType } from "@/lib/types";
 
 export const Route = createFileRoute("/farmer/plant")({ component: PlantPage });
@@ -120,6 +121,10 @@ function PlantPage() {
           {t("adviseMe")}
         </Button>
       </form>
+
+      {show ? (
+        <p className="rounded-[var(--radius-md)] bg-cream px-3 py-2 text-sm">{notice(lang, "placeholderBanner")}</p>
+      ) : null}
 
       {show ? (
         <ol className="space-y-4">
